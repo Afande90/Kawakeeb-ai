@@ -199,6 +199,31 @@ export async function createTool(
   return row;
 }
 
+export async function updateTool(
+  id: string,
+  data: Partial<Tool>
+): Promise<Tool> {
+  const sb = getSupabaseAdmin();
+  const { data: row, error } = await sb
+    .from("tools")
+    .update(data)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) {
+    throw error;
+  }
+  return row;
+}
+
+export async function deleteTool(id: string): Promise<void> {
+  const sb = getSupabaseAdmin();
+  const { error } = await sb.from("tools").delete().eq("id", id);
+  if (error) {
+    throw error;
+  }
+}
+
 export async function attachToolToAgent(
   agentId: string,
   toolId: string
@@ -262,6 +287,44 @@ export async function createSkill(
     throw error;
   }
   return row;
+}
+
+export async function getSkill(id: string): Promise<Skill | null> {
+  const sb = getSupabaseAdmin();
+  const { data, error } = await sb
+    .from("skills")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    throw error;
+  }
+  return data;
+}
+
+export async function updateSkill(
+  id: string,
+  data: Partial<Skill>
+): Promise<Skill> {
+  const sb = getSupabaseAdmin();
+  const { data: row, error } = await sb
+    .from("skills")
+    .update(data)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) {
+    throw error;
+  }
+  return row;
+}
+
+export async function deleteSkill(id: string): Promise<void> {
+  const sb = getSupabaseAdmin();
+  const { error } = await sb.from("skills").delete().eq("id", id);
+  if (error) {
+    throw error;
+  }
 }
 
 export async function attachSkillToAgent(
