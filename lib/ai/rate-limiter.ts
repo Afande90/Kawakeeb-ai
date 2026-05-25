@@ -14,10 +14,14 @@ import type { ProviderId } from "./multi-providers";
 let redis: Redis | null = null;
 
 function getRedis(): Redis | null {
-  if (redis) return redis;
+  if (redis) {
+    return redis;
+  }
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return null;
+  if (!url || !token) {
+    return null;
+  }
   redis = new Redis({ url, token });
   return redis;
 }
@@ -54,10 +58,12 @@ function dayKey(provider: ProviderId): string {
 export async function canCall(
   provider: ProviderId,
   rpm: number,
-  rpd: number,
+  rpd: number
 ): Promise<boolean> {
   const r = getRedis();
-  if (!r) return true; // no Redis → no enforcement
+  if (!r) {
+    return true; // no Redis → no enforcement
+  }
 
   try {
     const [perMinute, perDay] = await Promise.all([
@@ -68,8 +74,12 @@ export async function canCall(
     const minuteUsed = perMinute ?? 0;
     const dayUsed = perDay ?? 0;
 
-    if (minuteUsed >= rpm * SAFETY_BUFFER) return false;
-    if (rpd > 0 && dayUsed >= rpd * SAFETY_BUFFER) return false;
+    if (minuteUsed >= rpm * SAFETY_BUFFER) {
+      return false;
+    }
+    if (rpd > 0 && dayUsed >= rpd * SAFETY_BUFFER) {
+      return false;
+    }
 
     return true;
   } catch (err) {
@@ -83,7 +93,9 @@ export async function canCall(
  */
 export async function recordCall(provider: ProviderId): Promise<void> {
   const r = getRedis();
-  if (!r) return;
+  if (!r) {
+    return;
+  }
 
   try {
     const mKey = minuteKey(provider);
@@ -92,10 +104,14 @@ export async function recordCall(provider: ProviderId): Promise<void> {
     // Increment + set TTL atomically (TTL is set only if key is new)
     await Promise.all([
       r.incr(mKey).then(async (val) => {
-        if (val === 1) await r.expire(mKey, 70); // 70s = 1 min + buffer
+        if (val === 1) {
+          await r.expire(mKey, 70); // 70s = 1 min + buffer
+        }
       }),
       r.incr(dKey).then(async (val) => {
-        if (val === 1) await r.expire(dKey, 90000); // 25h = 24h + buffer
+        if (val === 1) {
+          await r.expire(dKey, 90_000); // 25h = 24h + buffer
+        }
       }),
     ]);
   } catch (err) {
@@ -111,7 +127,9 @@ export async function getUsage(provider: ProviderId): Promise<{
   perDay: number;
 }> {
   const r = getRedis();
-  if (!r) return { perMinute: 0, perDay: 0 };
+  if (!r) {
+    return { perMinute: 0, perDay: 0 };
+  }
 
   try {
     const [m, d] = await Promise.all([

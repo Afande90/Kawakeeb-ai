@@ -7,10 +7,10 @@
  * Internal tools → call a registered handler function
  */
 
-import { tool } from "ai";
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
-import { z, type ZodTypeAny } from "zod";
+import { tool } from "ai";
+import { type ZodTypeAny, z } from "zod";
 import type { Tool, ToolParameter } from "@/lib/db/agent-types";
 
 const execAsync = promisify(exec);
@@ -47,7 +47,6 @@ function paramToZod(p: ToolParameter): ZodTypeAny {
     case "object":
       base = z.record(z.any());
       break;
-    case "string":
     default:
       base = z.string();
       break;
@@ -58,7 +57,9 @@ function paramToZod(p: ToolParameter): ZodTypeAny {
 
 function buildSchema(params: ToolParameter[]) {
   const shape: Record<string, ZodTypeAny> = {};
-  for (const p of params) shape[p.name] = paramToZod(p);
+  for (const p of params) {
+    shape[p.name] = paramToZod(p);
+  }
   return z.object(shape);
 }
 
@@ -66,8 +67,13 @@ function buildSchema(params: ToolParameter[]) {
 // Tool executors
 // ═══════════════════════════════════════════════════════════════
 
-async function callWebhook(t: Tool, args: Record<string, unknown>): Promise<unknown> {
-  if (!t.webhook_url) throw new Error(`Tool ${t.name} has no webhook_url`);
+async function callWebhook(
+  t: Tool,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  if (!t.webhook_url) {
+    throw new Error(`Tool ${t.name} has no webhook_url`);
+  }
 
   const method = (t.http_method || "POST").toUpperCase();
   let url = t.webhook_url;
@@ -82,7 +88,9 @@ async function callWebhook(t: Tool, args: Record<string, unknown>): Promise<unkn
   if (method === "GET") {
     const params = new URLSearchParams();
     for (const [k, v] of Object.entries(args)) {
-      if (v != null) params.append(k, String(v));
+      if (v != null) {
+        params.append(k, String(v));
+      }
     }
     const sep = url.includes("?") ? "&" : "?";
     url = `${url}${sep}${params.toString()}`;
@@ -92,14 +100,23 @@ async function callWebhook(t: Tool, args: Record<string, unknown>): Promise<unkn
 
   const resp = await fetch(url, init);
   if (!resp.ok) {
-    throw new Error(`Webhook ${t.name} failed: ${resp.status} ${resp.statusText}`);
+    throw new Error(
+      `Webhook ${t.name} failed: ${resp.status} ${resp.statusText}`
+    );
   }
   const ct = resp.headers.get("content-type") || "";
-  return ct.includes("application/json") ? await resp.json() : await resp.text();
+  return ct.includes("application/json")
+    ? await resp.json()
+    : await resp.text();
 }
 
-async function callCli(t: Tool, args: Record<string, unknown>): Promise<unknown> {
-  if (!t.cli_command) throw new Error(`Tool ${t.name} has no cli_command`);
+async function callCli(
+  t: Tool,
+  args: Record<string, unknown>
+): Promise<unknown> {
+  if (!t.cli_command) {
+    throw new Error(`Tool ${t.name} has no cli_command`);
+  }
 
   // Replace {{arg}} placeholders with actual values. Quote everything to
   // avoid shell injection from LLM-provided arguments.
@@ -109,13 +126,20 @@ async function callCli(t: Tool, args: Record<string, unknown>): Promise<unknown>
     cmd = cmd.replaceAll(`{{${k}}}`, `"${safe}"`);
   }
 
-  const { stdout, stderr } = await execAsync(cmd, { maxBuffer: 10 * 1024 * 1024 });
+  const { stdout, stderr } = await execAsync(cmd, {
+    maxBuffer: 10 * 1024 * 1024,
+  });
   return { stdout, stderr };
 }
 
-async function callInternal(t: Tool, args: Record<string, unknown>): Promise<unknown> {
+function callInternal(
+  t: Tool,
+  args: Record<string, unknown>
+): Promise<unknown> {
   const handler = internalHandlers.get(t.name);
-  if (!handler) throw new Error(`No internal handler registered for ${t.name}`);
+  if (!handler) {
+    throw new Error(`No internal handler registered for ${t.name}`);
+  }
   return handler(args);
 }
 
@@ -123,7 +147,9 @@ async function callInternal(t: Tool, args: Record<string, unknown>): Promise<unk
 // Main export: convert DB tools → AI SDK tool definitions
 // ═══════════════════════════════════════════════════════════════
 
-export function buildTools(dbTools: Tool[]): Record<string, ReturnType<typeof tool>> {
+export function buildTools(
+  dbTools: Tool[]
+): Record<string, ReturnType<typeof tool>> {
   const result: Record<string, ReturnType<typeof tool>> = {};
 
   for (const t of dbTools) {

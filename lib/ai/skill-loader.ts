@@ -15,12 +15,14 @@ export function buildSystemPrompt(agent: AgentWithRelations): string {
     parts.push("# Available Skills");
     parts.push(
       "You have been trained with the following skills. " +
-        "Apply them when the user's request matches their topic.",
+        "Apply them when the user's request matches their topic."
     );
     for (const skill of agent.skills) {
       parts.push("");
       parts.push(`## Skill: ${skill.name}`);
-      if (skill.description) parts.push(`_${skill.description}_`);
+      if (skill.description) {
+        parts.push(`_${skill.description}_`);
+      }
       parts.push("");
       parts.push(skill.content);
     }

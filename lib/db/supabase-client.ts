@@ -19,7 +19,9 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 let cachedClient: SupabaseClient | null = null;
 
 export function getSupabaseAdmin(): SupabaseClient {
-  if (cachedClient) return cachedClient;
+  if (cachedClient) {
+    return cachedClient;
+  }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -27,7 +29,7 @@ export function getSupabaseAdmin(): SupabaseClient {
   if (!url || !key) {
     throw new Error(
       "Missing Supabase credentials. Set NEXT_PUBLIC_SUPABASE_URL and " +
-        "SUPABASE_SERVICE_ROLE_KEY in .env.local.",
+        "SUPABASE_SERVICE_ROLE_KEY in .env.local."
     );
   }
 

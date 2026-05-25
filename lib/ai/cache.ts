@@ -10,16 +10,20 @@
  * the caller behaves as if cache were always empty.
  */
 
+import { createHash } from "node:crypto";
 import { Redis } from "@upstash/redis";
-import { createHash } from "crypto";
 
 let redis: Redis | null = null;
 
 function getRedis(): Redis | null {
-  if (redis) return redis;
+  if (redis) {
+    return redis;
+  }
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return null;
+  if (!url || !token) {
+    return null;
+  }
   redis = new Redis({ url, token });
   return redis;
 }
@@ -27,18 +31,18 @@ function getRedis(): Redis | null {
 const DEFAULT_TTL_SECONDS = 24 * 60 * 60; // 24 hours
 
 export interface CacheKey {
-  prompt: string;
-  system?: string;
   model: string;
   /** Optional namespace to invalidate groups of entries together. */
   namespace?: string;
+  prompt: string;
+  system?: string;
 }
 
 export interface CachedResponse {
-  text: string;
-  provider: string;
-  modelId: string;
   cachedAt: number;
+  modelId: string;
+  provider: string;
+  text: string;
 }
 
 /**
@@ -59,10 +63,12 @@ export function makeCacheKey(input: CacheKey): string {
  * Return a cached response if one exists, otherwise null.
  */
 export async function getCached(
-  input: CacheKey,
+  input: CacheKey
 ): Promise<CachedResponse | null> {
   const r = getRedis();
-  if (!r) return null;
+  if (!r) {
+    return null;
+  }
 
   try {
     const key = makeCacheKey(input);
@@ -80,10 +86,12 @@ export async function getCached(
 export async function setCached(
   input: CacheKey,
   response: Omit<CachedResponse, "cachedAt">,
-  ttlSeconds: number = DEFAULT_TTL_SECONDS,
+  ttlSeconds: number = DEFAULT_TTL_SECONDS
 ): Promise<void> {
   const r = getRedis();
-  if (!r) return;
+  if (!r) {
+    return;
+  }
 
   try {
     const key = makeCacheKey(input);
@@ -99,7 +107,9 @@ export async function setCached(
  */
 export async function invalidateCache(input: CacheKey): Promise<void> {
   const r = getRedis();
-  if (!r) return;
+  if (!r) {
+    return;
+  }
   try {
     await r.del(makeCacheKey(input));
   } catch (err) {
@@ -116,7 +126,9 @@ export async function getCacheStats(): Promise<{
   hitRate: number;
 }> {
   const r = getRedis();
-  if (!r) return { hits: 0, misses: 0, hitRate: 0 };
+  if (!r) {
+    return { hits: 0, misses: 0, hitRate: 0 };
+  }
 
   try {
     const [hits, misses] = await Promise.all([
@@ -141,15 +153,23 @@ export async function getCacheStats(): Promise<{
  */
 export async function recordCacheHit(): Promise<void> {
   const r = getRedis();
-  if (!r) return;
+  if (!r) {
+    return;
+  }
   try {
     await r.incr("llm:stats:hits");
-  } catch {}
+  } catch {
+    // Stats are non-critical; swallow errors.
+  }
 }
 export async function recordCacheMiss(): Promise<void> {
   const r = getRedis();
-  if (!r) return;
+  if (!r) {
+    return;
+  }
   try {
     await r.incr("llm:stats:misses");
-  } catch {}
+  } catch {
+    // Stats are non-critical; swallow errors.
+  }
 }

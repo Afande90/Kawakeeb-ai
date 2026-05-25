@@ -22,4 +22,3 @@ jobs:
         run: npm install --legacy-peer-deps
       - name: Run check
         run: npm run check
-        continue-on-error: true # don't fail builds on lint warnings while iterating

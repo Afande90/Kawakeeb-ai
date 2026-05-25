@@ -5,7 +5,11 @@
  */
 
 import type { NextRequest } from "next/server";
-import { deleteAgent, getAgentWithRelations, updateAgent } from "@/lib/db/agents";
+import {
+  deleteAgent,
+  getAgentWithRelations,
+  updateAgent,
+} from "@/lib/db/agents";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -15,7 +19,9 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
   try {
     const { id } = await ctx.params;
     const agent = await getAgentWithRelations(id);
-    if (!agent) return Response.json({ error: "Not found" }, { status: 404 });
+    if (!agent) {
+      return Response.json({ error: "Not found" }, { status: 404 });
+    }
     return Response.json({ agent });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Unknown error";

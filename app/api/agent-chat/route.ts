@@ -12,20 +12,28 @@
 
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
 import type { NextRequest } from "next/server";
-import { getCached, recordCacheHit, recordCacheMiss, setCached } from "@/lib/ai/cache";
-import { getModel, trackUsage, type ProviderId } from "@/lib/ai/multi-providers";
+import {
+  getCached,
+  recordCacheHit,
+  recordCacheMiss,
+  setCached,
+} from "@/lib/ai/cache";
+import {
+  getModel,
+  type ProviderId,
+  trackUsage,
+} from "@/lib/ai/multi-providers";
 import { buildSystemPrompt } from "@/lib/ai/skill-loader";
 import { buildTools } from "@/lib/ai/tool-executor";
-import { getAgentWithRelations } from "@/lib/db/agents";
-import { logUsage } from "@/lib/db/agents";
+import { getAgentWithRelations, logUsage } from "@/lib/db/agents";
 
 export const maxDuration = 60; // seconds — bumped from default 10s for tool use
 
 interface ChatRequest {
   agentId: string;
-  messages: UIMessage[];
   /** Skip cache lookup. Defaults to true (cache on) for non-cron requests. */
   cache?: boolean;
+  messages: UIMessage[];
   /** Source tag for usage logs. */
   source?: "chat" | "cron" | "telegram";
 }
@@ -40,14 +48,21 @@ export async function POST(req: NextRequest) {
 
   const { agentId, messages, cache: useCache = true, source = "chat" } = body;
 
-  if (!agentId) return Response.json({ error: "agentId is required" }, { status: 400 });
+  if (!agentId) {
+    return Response.json({ error: "agentId is required" }, { status: 400 });
+  }
   if (!Array.isArray(messages) || messages.length === 0) {
-    return Response.json({ error: "messages must be a non-empty array" }, { status: 400 });
+    return Response.json(
+      { error: "messages must be a non-empty array" },
+      { status: 400 }
+    );
   }
 
   // ─── Load agent with relations ─────────────────────────────────
   const agent = await getAgentWithRelations(agentId);
-  if (!agent) return Response.json({ error: "Agent not found" }, { status: 404 });
+  if (!agent) {
+    return Response.json({ error: "Agent not found" }, { status: 404 });
+  }
   if (!agent.is_active) {
     return Response.json({ error: "Agent is disabled" }, { status: 403 });
   }
@@ -76,11 +91,13 @@ export async function POST(req: NextRequest) {
       return new Response(
         new ReadableStream({
           start(controller) {
-            controller.enqueue(new TextEncoder().encode(`0:${JSON.stringify(hit.text)}\n`));
+            controller.enqueue(
+              new TextEncoder().encode(`0:${JSON.stringify(hit.text)}\n`)
+            );
             controller.close();
           },
         }),
-        { headers: { "Content-Type": "text/plain; charset=utf-8" } },
+        { headers: { "Content-Type": "text/plain; charset=utf-8" } }
       );
     }
     await recordCacheMiss();
@@ -95,7 +112,9 @@ export async function POST(req: NextRequest) {
   } catch {
     // Provider not configured (no API key). Fall through to rotation.
     const { getNextAvailableModel } = await import("@/lib/ai/multi-providers");
-    const next = await getNextAvailableModel("chat", { excludeProviders: [provider] });
+    const next = await getNextAvailableModel("chat", {
+      excludeProviders: [provider],
+    });
     model = next.model;
     usedProvider = next.provider;
   }
@@ -137,7 +156,7 @@ export async function POST(req: NextRequest) {
               text: event.text,
               provider: usedProvider,
               modelId: agent.model_id,
-            },
+            }
           );
         }
       } catch (err) {
@@ -153,7 +172,9 @@ export async function POST(req: NextRequest) {
 function extractLastUserText(messages: UIMessage[]): string | null {
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i];
-    if (m.role !== "user") continue;
+    if (m.role !== "user") {
+      continue;
+    }
     const parts = m.parts ?? [];
     const text = parts
       .filter((p): p is { type: "text"; text: string } => p.type === "text")

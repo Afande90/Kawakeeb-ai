@@ -14,101 +14,101 @@ export type ProviderId =
   | "cohere";
 
 export interface Agent {
-  id: string;
-  name: string;
-  description: string | null;
-  system_prompt: string;
-  model_provider: string;
-  model_id: string;
-  icon: string | null;
-  is_active: boolean;
-  telegram_command: string | null;
   created_at: string;
+  description: string | null;
+  icon: string | null;
+  id: string;
+  is_active: boolean;
+  model_id: string;
+  model_provider: string;
+  name: string;
+  system_prompt: string;
+  telegram_command: string | null;
   updated_at: string;
 }
 
 export type ToolType = "webhook" | "cli" | "internal";
 
 export interface ToolParameter {
-  name: string;
-  type: "string" | "integer" | "number" | "boolean" | "array" | "object";
-  required: boolean;
   description: string;
+  name: string;
+  required: boolean;
+  type: "string" | "integer" | "number" | "boolean" | "array" | "object";
 }
 
 export interface Tool {
-  id: string;
-  name: string;
+  cli_command: string | null;
+  created_at: string;
   description: string;
+  headers: Record<string, string>;
+  http_method: string;
+  id: string;
+  is_active: boolean;
+  name: string;
+  parameters: ToolParameter[];
   tool_type: ToolType;
   webhook_url: string | null;
-  cli_command: string | null;
-  http_method: string;
-  headers: Record<string, string>;
-  parameters: ToolParameter[];
-  is_active: boolean;
-  created_at: string;
 }
 
 export interface AgentKnowledge {
-  id: string;
   agent_id: string;
-  file_name: string;
-  file_content: string;
-  file_size: number | null;
   created_at: string;
+  file_content: string;
+  file_name: string;
+  file_size: number | null;
+  id: string;
 }
 
 export interface AgentStarter {
-  id: string;
   agent_id: string;
-  text: string;
+  id: string;
   sort_order: number;
+  text: string;
 }
 
 export interface Skill {
-  id: string;
-  name: string;
-  description: string | null;
-  content: string;
   category: string;
-  is_active: boolean;
+  content: string;
   created_at: string;
+  description: string | null;
+  id: string;
+  is_active: boolean;
+  name: string;
 }
 
 export interface AgentWithRelations extends Agent {
-  tools: Tool[];
-  skills: Skill[];
   knowledge: AgentKnowledge[];
+  skills: Skill[];
   starters: AgentStarter[];
+  tools: Tool[];
 }
 
 export interface UsageLog {
-  id: string;
-  provider: string;
-  model_id: string;
   agent_id: string | null;
+  created_at: string;
+  duration_ms: number;
+  error_message: string | null;
+  id: string;
+  model_id: string;
+  provider: string;
+  source: "chat" | "cron" | "telegram" | "video_pipeline";
+  status: "success" | "error" | "cached";
   tokens_input: number;
   tokens_output: number;
-  duration_ms: number;
-  status: "success" | "error" | "cached";
-  error_message: string | null;
-  source: "chat" | "cron" | "telegram" | "video_pipeline";
-  created_at: string;
 }
 
 export interface CronJob {
-  id: string;
-  name: string;
-  schedule: string; // cron expression
   agent_id: string | null;
+  created_at: string;
+  id: string;
   instructions: string;
-  model_provider: string | null;
-  model_id: string | null;
   is_enabled: boolean;
   last_run: string | null;
   last_status: string | null;
-  created_at: string;
+  model_id: string | null;
+  model_provider: string | null;
+  name: string;
+  schedule: string; // cron expression
 }
 
 export type VideoStatus =
@@ -120,28 +120,28 @@ export type VideoStatus =
   | "error";
 
 export interface VideoSegment {
-  segment_number: number;
+  duration_seconds: number;
+  image_path?: string;
+  manim_code?: string;
   narration: string;
+  rendered_path?: string;
+  segment_number: number;
+  visual_description: string;
   visual_type:
     | "tactical_diagram"
     | "character_image"
     | "stat_graphic"
     | "title_card";
-  visual_description: string;
-  duration_seconds: number;
-  manim_code?: string;
-  rendered_path?: string;
-  image_path?: string;
 }
 
 export interface VideoProject {
+  created_at: string;
+  duration_seconds: number | null;
   id: string;
-  title: string;
+  output_url: string | null;
   prompt: string;
   script: string | null;
   segments: VideoSegment[];
   status: VideoStatus;
-  output_url: string | null;
-  duration_seconds: number | null;
-  created_at: string;
+  title: string;
 }

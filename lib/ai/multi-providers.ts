@@ -34,13 +34,13 @@ export type ProviderId =
 export type TaskType = "chat" | "coding" | "reasoning" | "fast" | "embedding";
 
 interface ProviderConfig {
-  id: ProviderId;
-  envKey: string;
   baseURL?: string;
-  rpm: number; // requests per minute (free tier)
-  rpd: number; // requests per day (free tier, 0 = effectively unlimited)
   defaultModel: string;
+  envKey: string;
+  id: ProviderId;
   models: Record<TaskType, string>;
+  rpd: number; // requests per day (free tier, 0 = effectively unlimited)
+  rpm: number; // requests per minute (free tier)
 }
 
 export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
@@ -49,7 +49,7 @@ export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
     envKey: "CEREBRAS_API_KEY",
     baseURL: "https://api.cerebras.ai/v1",
     rpm: 30,
-    rpd: 14400,
+    rpd: 14_400,
     defaultModel: "llama-3.3-70b",
     models: {
       chat: "llama-3.3-70b",
@@ -64,7 +64,7 @@ export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
     envKey: "GROQ_API_KEY",
     baseURL: "https://api.groq.com/openai/v1",
     rpm: 30,
-    rpd: 14400,
+    rpd: 14_400,
     defaultModel: "llama-3.3-70b-versatile",
     models: {
       chat: "llama-3.3-70b-versatile",
@@ -169,11 +169,56 @@ export const PROVIDERS: Record<ProviderId, ProviderConfig> = {
  * Rotation order per task type. Best-fit provider first; reasoning models last for chat.
  */
 const ROTATION_ORDER: Record<TaskType, ProviderId[]> = {
-  chat: ["cerebras", "groq", "google", "github", "openrouter", "mistral", "huggingface", "cohere"],
-  coding: ["openrouter", "groq", "cerebras", "google", "mistral", "github", "huggingface", "cohere"],
-  reasoning: ["openrouter", "google", "cerebras", "groq", "mistral", "github", "huggingface", "cohere"],
-  fast: ["groq", "cerebras", "google", "openrouter", "mistral", "github", "huggingface", "cohere"],
-  embedding: ["google", "mistral", "cohere", "huggingface", "openrouter", "github", "groq", "cerebras"],
+  chat: [
+    "cerebras",
+    "groq",
+    "google",
+    "github",
+    "openrouter",
+    "mistral",
+    "huggingface",
+    "cohere",
+  ],
+  coding: [
+    "openrouter",
+    "groq",
+    "cerebras",
+    "google",
+    "mistral",
+    "github",
+    "huggingface",
+    "cohere",
+  ],
+  reasoning: [
+    "openrouter",
+    "google",
+    "cerebras",
+    "groq",
+    "mistral",
+    "github",
+    "huggingface",
+    "cohere",
+  ],
+  fast: [
+    "groq",
+    "cerebras",
+    "google",
+    "openrouter",
+    "mistral",
+    "github",
+    "huggingface",
+    "cohere",
+  ],
+  embedding: [
+    "google",
+    "mistral",
+    "cohere",
+    "huggingface",
+    "openrouter",
+    "github",
+    "groq",
+    "cerebras",
+  ],
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -189,7 +234,7 @@ export function getModel(provider: ProviderId, modelId?: string) {
   const apiKey = process.env[config.envKey];
   if (!apiKey) {
     throw new Error(
-      `Missing ${config.envKey} for provider "${provider}". Add it to .env.local.`,
+      `Missing ${config.envKey} for provider "${provider}". Add it to .env.local.`
     );
   }
 
@@ -219,19 +264,25 @@ export function getModel(provider: ProviderId, modelId?: string) {
  */
 export async function getNextAvailableModel(
   taskType: TaskType = "chat",
-  options: { excludeProviders?: ProviderId[] } = {},
+  options: { excludeProviders?: ProviderId[] } = {}
 ) {
   const order = ROTATION_ORDER[taskType];
   const exclude = new Set(options.excludeProviders || []);
 
   for (const providerId of order) {
-    if (exclude.has(providerId)) continue;
+    if (exclude.has(providerId)) {
+      continue;
+    }
 
     const config = PROVIDERS[providerId];
-    if (!process.env[config.envKey]) continue;
+    if (!process.env[config.envKey]) {
+      continue;
+    }
 
     const available = await canCall(providerId, config.rpm, config.rpd);
-    if (!available) continue;
+    if (!available) {
+      continue;
+    }
 
     const modelId = config.models[taskType];
     return {
@@ -243,7 +294,7 @@ export async function getNextAvailableModel(
 
   throw new Error(
     `All providers exhausted or unavailable for task "${taskType}". ` +
-      `Configure more API keys or wait for quotas to reset.`,
+      "Configure more API keys or wait for quotas to reset."
   );
 }
 
@@ -259,6 +310,6 @@ export async function trackUsage(provider: ProviderId) {
  */
 export function getConfiguredProviders(): ProviderId[] {
   return (Object.keys(PROVIDERS) as ProviderId[]).filter(
-    (id) => !!process.env[PROVIDERS[id].envKey],
+    (id) => !!process.env[PROVIDERS[id].envKey]
   );
 }

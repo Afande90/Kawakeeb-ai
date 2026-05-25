@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     if (!body.name || !body.system_prompt) {
       return Response.json(
         { error: "name and system_prompt are required" },
-        { status: 400 },
+        { status: 400 }
       );
     }
     const agent = await createAgent(body);
