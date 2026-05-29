@@ -2,6 +2,17 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { guestRegex, isDevelopmentEnvironment } from "./lib/constants";
 
+// Kawakeeb custom routes manage their own access (service-role, server-side)
+// and are intentionally NOT behind the template's chat auth.
+// TODO(before public deploy): add a password/middleware gate to /admin.
+const KAWAKEEB_PUBLIC_PREFIXES = [
+  "/admin",
+  "/api/agents",
+  "/api/tools",
+  "/api/skills",
+  "/api/agent-chat",
+];
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -10,6 +21,11 @@ export async function proxy(request: NextRequest) {
   }
 
   if (pathname.startsWith("/api/auth")) {
+    return NextResponse.next();
+  }
+
+  // Kawakeeb admin + agent APIs: allowed without the template guest auth.
+  if (KAWAKEEB_PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 
@@ -43,6 +59,7 @@ export const config = {
     "/",
     "/chat/:id",
     "/api/:path*",
+    "/admin/:path*",
     "/login",
     "/register",
 
