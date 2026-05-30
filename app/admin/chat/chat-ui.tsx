@@ -6,13 +6,38 @@
  */
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
-import { useMemo, useRef, useState } from "react";
+import { DefaultChatTransport, type UIMessage } from "ai";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { Agent } from "@/lib/db/agent-types";
 
 interface Props {
   agents: Agent[];
+}
+
+const STORAGE_PREFIX = "kawakeeb-chat:";
+
+function loadHistory(agentId: string): UIMessage[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+  try {
+    const raw = localStorage.getItem(STORAGE_PREFIX + agentId);
+    return raw ? (JSON.parse(raw) as UIMessage[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(agentId: string, messages: UIMessage[]) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    localStorage.setItem(STORAGE_PREFIX + agentId, JSON.stringify(messages));
+  } catch {
+    // storage full or unavailable — ignore
+  }
 }
 
 export function ChatPlayground({ agents }: Props) {
@@ -44,9 +69,35 @@ export function ChatPlayground({ agents }: Props) {
   const selectedAgent = agents.find((a) => a.id === selectedAgentId) ?? null;
   const isStreaming = status === "submitted" || status === "streaming";
 
+  // Load this agent's saved history on mount / when the agent changes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: setMessages is stable; we only want to reload on agent switch
+  useEffect(() => {
+    if (selectedAgentId) {
+      setMessages(loadHistory(selectedAgentId));
+    }
+  }, [selectedAgentId]);
+
+  // Persist history whenever it changes and we're idle (not mid-stream).
+  useEffect(() => {
+    if (selectedAgentId && !isStreaming) {
+      saveHistory(selectedAgentId, messages);
+    }
+  }, [messages, selectedAgentId, isStreaming]);
+
   function switchAgent(id: string) {
+    // Persist the current agent's chat before switching away.
+    if (selectedAgentId) {
+      saveHistory(selectedAgentId, messages);
+    }
     setSelectedAgentId(id);
-    setMessages([]); // fresh conversation per agent
+    // The load effect will restore the new agent's history.
+  }
+
+  function clearCurrent() {
+    setMessages([]);
+    if (selectedAgentId) {
+      saveHistory(selectedAgentId, []);
+    }
   }
 
   function onSubmit(e: React.FormEvent) {
@@ -99,7 +150,7 @@ export function ChatPlayground({ agents }: Props) {
             </div>
           </div>
           {messages.length > 0 && (
-            <Button onClick={() => setMessages([])} size="sm" variant="ghost">
+            <Button onClick={clearCurrent} size="sm" variant="ghost">
               Clear
             </Button>
           )}
