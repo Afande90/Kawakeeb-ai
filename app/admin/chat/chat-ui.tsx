@@ -45,6 +45,8 @@ export function ChatPlayground({ agents }: Props) {
     agents[0]?.id ?? null
   );
   const [input, setInput] = useState("");
+  const [files, setFiles] = useState<FileList | undefined>(undefined);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Keep the current agent id available to the transport without
   // re-instantiating it on every selection change.
@@ -103,11 +105,16 @@ export function ChatPlayground({ agents }: Props) {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const text = input.trim();
-    if (!(text && selectedAgentId) || isStreaming) {
+    const hasFiles = files && files.length > 0;
+    if (!(selectedAgentId && (text || hasFiles)) || isStreaming) {
       return;
     }
-    sendMessage({ text });
+    sendMessage({ text, files });
     setInput("");
+    setFiles(undefined);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   }
 
   return (
@@ -192,6 +199,33 @@ export function ChatPlayground({ agents }: Props) {
                   if (part.type === "text") {
                     return <span key={partKey}>{part.text}</span>;
                   }
+                  if (part.type === "file") {
+                    const filePart = part as {
+                      type: "file";
+                      mediaType?: string;
+                      url?: string;
+                      filename?: string;
+                    };
+                    if (filePart.mediaType?.startsWith("image/")) {
+                      return (
+                        // biome-ignore lint/performance/noImgElement: data-url preview in chat
+                        <img
+                          alt={filePart.filename ?? "attachment"}
+                          className="mt-1 max-h-48 rounded"
+                          key={partKey}
+                          src={filePart.url}
+                        />
+                      );
+                    }
+                    return (
+                      <span
+                        className="my-1 block rounded bg-background/50 px-2 py-1 text-xs"
+                        key={partKey}
+                      >
+                        📎 {filePart.filename ?? "attachment"}
+                      </span>
+                    );
+                  }
                   if (part.type.startsWith("tool-")) {
                     return (
                       <span
@@ -225,7 +259,36 @@ export function ChatPlayground({ agents }: Props) {
 
         {/* Input */}
         <form className="border-t p-3" onSubmit={onSubmit}>
+          {files && files.length > 0 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {Array.from(files).map((f) => (
+                <span
+                  className="inline-flex items-center gap-1 rounded bg-muted px-2 py-1 text-xs"
+                  key={f.name}
+                >
+                  📎 {f.name}
+                </span>
+              ))}
+            </div>
+          )}
           <div className="flex gap-2">
+            <input
+              accept="image/*,application/pdf,text/plain,.md,.csv"
+              className="hidden"
+              multiple
+              onChange={(e) => setFiles(e.target.files ?? undefined)}
+              ref={fileInputRef}
+              type="file"
+            />
+            <Button
+              disabled={!selectedAgentId}
+              onClick={() => fileInputRef.current?.click()}
+              size="icon"
+              type="button"
+              variant="outline"
+            >
+              📎
+            </Button>
             <input
               className="flex-1 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               disabled={!selectedAgentId}
@@ -233,7 +296,10 @@ export function ChatPlayground({ agents }: Props) {
               placeholder={`Message ${selectedAgent?.name ?? "agent"}...`}
               value={input}
             />
-            <Button disabled={isStreaming || !input.trim()} type="submit">
+            <Button
+              disabled={isStreaming || !(input.trim() || files?.length)}
+              type="submit"
+            >
               {isStreaming ? "..." : "Send"}
             </Button>
           </div>
