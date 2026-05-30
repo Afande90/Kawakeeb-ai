@@ -79,7 +79,10 @@ export async function POST(req: NextRequest) {
     messages.length === 1 &&
     lastUserText !== null;
 
-  if (cacheable && lastUserText) {
+  // Only short-circuit the cache for non-interactive callers (cron/telegram).
+  // The chat UI always gets a real streamed response so the UI-message
+  // protocol stays intact.
+  if (cacheable && source !== "chat" && lastUserText) {
     const hit = await getCached({
       prompt: lastUserText,
       system: systemPrompt,
@@ -125,47 +128,56 @@ export async function POST(req: NextRequest) {
   // ─── Stream the response ──────────────────────────────────────
   const startedAt = Date.now();
 
-  const result = streamText({
-    model,
-    system: systemPrompt,
-    messages: convertToModelMessages(messages),
-    tools: Object.keys(tools).length > 0 ? tools : undefined,
-    onFinish: async (event) => {
-      try {
-        await trackUsage(usedProvider);
-        await logUsage({
-          provider: usedProvider,
-          model_id: agent.model_id,
-          agent_id: agent.id,
-          tokens_input: event.usage?.inputTokens ?? 0,
-          tokens_output: event.usage?.outputTokens ?? 0,
-          duration_ms: Date.now() - startedAt,
-          status: "success",
-          source,
-        });
+  // convertToModelMessages may return a Promise in this SDK version — await it.
+  const modelMessages = await convertToModelMessages(messages);
 
-        // Save to cache if cacheable
-        if (cacheable && lastUserText && event.text) {
-          await setCached(
-            {
-              prompt: lastUserText,
-              system: systemPrompt,
-              model: `${agent.model_provider}:${agent.model_id}`,
-            },
-            {
-              text: event.text,
-              provider: usedProvider,
-              modelId: agent.model_id,
-            }
-          );
+  try {
+    const result = streamText({
+      model,
+      system: systemPrompt,
+      messages: modelMessages,
+      tools: Object.keys(tools).length > 0 ? tools : undefined,
+      onFinish: async (event) => {
+        try {
+          await trackUsage(usedProvider);
+          await logUsage({
+            provider: usedProvider,
+            model_id: agent.model_id,
+            agent_id: agent.id,
+            tokens_input: event.usage?.inputTokens ?? 0,
+            tokens_output: event.usage?.outputTokens ?? 0,
+            duration_ms: Date.now() - startedAt,
+            status: "success",
+            source,
+          });
+
+          // Save to cache if cacheable
+          if (cacheable && lastUserText && event.text) {
+            await setCached(
+              {
+                prompt: lastUserText,
+                system: systemPrompt,
+                model: `${agent.model_provider}:${agent.model_id}`,
+              },
+              {
+                text: event.text,
+                provider: usedProvider,
+                modelId: agent.model_id,
+              }
+            );
+          }
+        } catch (err) {
+          console.error("[agent-chat] post-stream logging failed:", err);
         }
-      } catch (err) {
-        console.error("[agent-chat] post-stream logging failed:", err);
-      }
-    },
-  });
+      },
+    });
 
-  return result.toUIMessageStreamResponse();
+    return result.toUIMessageStreamResponse();
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[agent-chat] streamText failed:", err);
+    return Response.json({ error: `LLM call failed: ${msg}` }, { status: 500 });
+  }
 }
 
 /** Extract plain text from the last user message in a UIMessage[] history. */
