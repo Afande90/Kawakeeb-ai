@@ -487,6 +487,14 @@ export async function updateCronJob(
   return row;
 }
 
+export async function deleteCronJob(id: string): Promise<void> {
+  const sb = getSupabaseAdmin();
+  const { error } = await sb.from("cron_jobs").delete().eq("id", id);
+  if (error) {
+    throw error;
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Video Projects
 // ═══════════════════════════════════════════════════════════════

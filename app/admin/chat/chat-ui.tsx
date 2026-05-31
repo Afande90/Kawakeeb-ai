@@ -194,8 +194,7 @@ export function ChatPlayground({ agents }: Props) {
                 }`}
               >
                 {message.parts.map((part, i) => {
-                  // biome-ignore lint/suspicious/noArrayIndexKey: parts are append-only and stable per message
-                  const partKey = `${message.id}-${i}`;
+                  const partKey = `${message.id}-${part.type}-${i}`;
                   if (part.type === "text") {
                     return <span key={partKey}>{part.text}</span>;
                   }
