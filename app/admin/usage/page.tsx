@@ -3,11 +3,10 @@
  * breakdowns, and a simple daily activity series. Server-rendered.
  */
 
+import { connection } from "next/server";
 import { PROVIDERS, type ProviderId } from "@/lib/ai/multi-providers";
 import { getUsage } from "@/lib/ai/rate-limiter";
 import { getUsageStats, listAgents } from "@/lib/db/agents";
-
-export const dynamic = "force-dynamic";
 
 function fmt(n: number): string {
   if (n >= 1_000_000) {
@@ -20,6 +19,8 @@ function fmt(n: number): string {
 }
 
 export default async function UsagePage() {
+  // Opt out of static caching — this page reads live DB + Redis state.
+  await connection();
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
   let logs: Awaited<ReturnType<typeof getUsageStats>> = [];

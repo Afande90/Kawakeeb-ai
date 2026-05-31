@@ -5,12 +5,12 @@
  * stored and toggleable; the runner is added in a later step.
  */
 
+import { connection } from "next/server";
 import { listAgents, listCronJobs } from "@/lib/db/agents";
 import { CronManager } from "./cron-manager";
 
-export const dynamic = "force-dynamic";
-
 export default async function CronPage() {
+  await connection();
   let jobs: Awaited<ReturnType<typeof listCronJobs>> = [];
   let agents: Awaited<ReturnType<typeof listAgents>> = [];
   let error: string | null = null;
