@@ -26,6 +26,7 @@ interface Props {
 export function CronManager({ initialJobs, agents }: Props) {
   const [jobs, setJobs] = useState<CronJob[]>(initialJobs);
   const [creating, setCreating] = useState(false);
+  const [running, setRunning] = useState<string | null>(null);
 
   async function toggle(job: CronJob) {
     const res = await fetch(`/api/cron-jobs/${job.id}`, {
@@ -47,6 +48,29 @@ export function CronManager({ initialJobs, agents }: Props) {
     const res = await fetch(`/api/cron-jobs/${job.id}`, { method: "DELETE" });
     if (res.ok) {
       setJobs((prev) => prev.filter((j) => j.id !== job.id));
+    }
+  }
+
+  async function runNow(job: CronJob) {
+    setRunning(job.id);
+    try {
+      const res = await fetch(`/api/cron-jobs/run?force=${job.id}`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      const r = data.results?.[0];
+      // biome-ignore lint/suspicious/noAlert: simple result feedback for v1
+      alert(
+        r
+          ? `${job.name}: ${r.status}${r.detail ? ` — ${r.detail}` : ""}`
+          : "No result returned."
+      );
+    } catch (err: unknown) {
+      const m = err instanceof Error ? err.message : "Unknown error";
+      // biome-ignore lint/suspicious/noAlert: simple result feedback for v1
+      alert(`Run failed: ${m}`);
+    } finally {
+      setRunning(null);
     }
   }
 
@@ -121,13 +145,23 @@ export function CronManager({ initialJobs, agents }: Props) {
                     </button>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      className="text-destructive text-xs hover:underline"
-                      onClick={() => remove(job)}
-                      type="button"
-                    >
-                      Delete
-                    </button>
+                    <div className="flex justify-end gap-3">
+                      <button
+                        className="text-xs hover:underline disabled:opacity-50"
+                        disabled={running === job.id || !job.agent_id}
+                        onClick={() => runNow(job)}
+                        type="button"
+                      >
+                        {running === job.id ? "Running…" : "Run now"}
+                      </button>
+                      <button
+                        className="text-destructive text-xs hover:underline"
+                        onClick={() => remove(job)}
+                        type="button"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
