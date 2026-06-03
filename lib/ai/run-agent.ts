@@ -11,9 +11,8 @@ import { generateText } from "ai";
 import { getAgentWithRelations, logUsage } from "@/lib/db/agents";
 import { getCached, setCached } from "./cache";
 import {
-  getModel,
-  getNextAvailableModel,
   type ProviderId,
+  runWithFailover,
   trackUsage,
 } from "./multi-providers";
 import { buildSystemPrompt } from "./skill-loader";
@@ -60,28 +59,22 @@ export async function runAgent(opts: {
     }
   }
 
-  const provider = agent.model_provider as ProviderId;
-  let model: ReturnType<typeof getModel>;
-  let usedProvider = provider;
-  try {
-    model = getModel(provider, agent.model_id);
-  } catch {
-    const next = await getNextAvailableModel("chat", {
-      excludeProviders: [provider],
-    });
-    model = next.model;
-    usedProvider = next.provider;
-  }
-
+  const preferred = agent.model_provider as ProviderId;
   const tools = buildTools(agent.tools);
   const startedAt = Date.now();
 
-  const result = await generateText({
-    model,
-    system: systemPrompt,
-    prompt,
-    tools: Object.keys(tools).length > 0 ? tools : undefined,
-  });
+  // Pattern 2: run with circuit-breaker-aware failover across providers.
+  const { result, provider: usedProvider } = await runWithFailover(
+    "chat",
+    preferred,
+    (model) =>
+      generateText({
+        model,
+        system: systemPrompt,
+        prompt,
+        tools: Object.keys(tools).length > 0 ? tools : undefined,
+      })
+  );
 
   // Log + cache without blocking the response.
   const logPromise = (async () => {

@@ -15,6 +15,7 @@
 
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
+import { isAvailable } from "./circuit-breaker";
 import { canCall, recordCall } from "./rate-limiter";
 
 // ═══════════════════════════════════════════════════════════════
@@ -279,6 +280,11 @@ export async function getNextAvailableModel(
       continue;
     }
 
+    // Pattern 2: skip providers whose circuit breaker is open (recently dead).
+    if (!isAvailable(providerId)) {
+      continue;
+    }
+
     const available = await canCall(providerId, config.rpm, config.rpd);
     if (!available) {
       continue;
@@ -303,6 +309,75 @@ export async function getNextAvailableModel(
  */
 export async function trackUsage(provider: ProviderId) {
   await recordCall(provider);
+}
+
+/**
+ * Pattern 2 helper: run an LLM operation with circuit-breaker-aware failover.
+ *
+ * Tries the preferred provider first, then rotates through the chain. On each
+ * attempt: success closes the breaker; failure records a strike (and trips the
+ * breaker after 3). Throws only if every available provider fails.
+ *
+ * `op(model, provider, modelId)` should perform the actual generate/stream and
+ * return its result.
+ */
+export async function runWithFailover<T>(
+  taskType: TaskType,
+  preferred: ProviderId | undefined,
+  op: (
+    model: ReturnType<typeof getModel>,
+    provider: ProviderId,
+    modelId: string
+  ) => Promise<T>
+): Promise<{ result: T; provider: ProviderId; modelId: string }> {
+  const {
+    isAvailable: brkAvailable,
+    recordSuccess,
+    recordFailure,
+  } = await import("./circuit-breaker");
+
+  const tried = new Set<ProviderId>();
+  const order = ROTATION_ORDER[taskType];
+  const sequence: ProviderId[] = preferred
+    ? [preferred, ...order.filter((p) => p !== preferred)]
+    : order;
+
+  let lastErr: unknown = null;
+
+  for (const providerId of sequence) {
+    if (tried.has(providerId)) {
+      continue;
+    }
+    tried.add(providerId);
+
+    const config = PROVIDERS[providerId];
+    if (!process.env[config.envKey]) {
+      continue;
+    }
+    if (!brkAvailable(providerId)) {
+      continue;
+    }
+    if (!(await canCall(providerId, config.rpm, config.rpd))) {
+      continue;
+    }
+
+    const modelId = config.models[taskType];
+    try {
+      const model = getModel(providerId, modelId);
+      const result = await op(model, providerId, modelId);
+      recordSuccess(providerId);
+      return { result, provider: providerId, modelId };
+    } catch (err) {
+      lastErr = err;
+      recordFailure(providerId);
+    }
+  }
+
+  throw new Error(
+    `All providers failed for task "${taskType}". Last error: ${
+      lastErr instanceof Error ? lastErr.message : String(lastErr)
+    }`
+  );
 }
 
 /**

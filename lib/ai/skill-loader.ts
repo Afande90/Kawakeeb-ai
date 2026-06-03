@@ -6,9 +6,11 @@
  */
 
 import type { AgentWithRelations } from "@/lib/db/agent-types";
+import { AGENT_DISCIPLINE } from "./agent-discipline";
 
 export function buildSystemPrompt(agent: AgentWithRelations): string {
-  const parts: string[] = [agent.system_prompt.trim()];
+  // Pattern 1: every agent gets the shared ending-discipline block first.
+  const parts: string[] = [AGENT_DISCIPLINE, "", agent.system_prompt.trim()];
 
   if (agent.skills.length > 0) {
     parts.push("");
