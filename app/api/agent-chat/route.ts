@@ -129,7 +129,11 @@ export async function POST(req: NextRequest) {
   const startedAt = Date.now();
 
   // convertToModelMessages may return a Promise in this SDK version — await it.
-  const modelMessages = await convertToModelMessages(messages);
+  const rawModelMessages = await convertToModelMessages(messages);
+
+  // Pattern 4: compact old turns if the thread is getting long.
+  const { compactIfNeeded } = await import("@/lib/ai/compactor");
+  const { messages: modelMessages } = await compactIfNeeded(rawModelMessages);
 
   try {
     const result = streamText({
