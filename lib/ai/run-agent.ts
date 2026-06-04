@@ -76,6 +76,20 @@ export async function runAgent(opts: {
       })
   );
 
+  // Pattern 5: if the cheap reply looks like a failure, escalate to a teacher
+  // model and capture a reusable skill. Only for tool-free single-shot turns.
+  let finalText = result.text;
+  if (agent.tools.length === 0) {
+    const { escalateIfFailed } = await import("./teacher");
+    const t = await escalateIfFailed({
+      prompt,
+      system: systemPrompt,
+      cheapReply: result.text,
+      category: "general",
+    });
+    finalText = t.text;
+  }
+
   // Log + cache without blocking the response.
   const logPromise = (async () => {
     try {
@@ -90,11 +104,11 @@ export async function runAgent(opts: {
         status: "success",
         source,
       });
-      if (cacheable && result.text) {
+      if (cacheable && finalText) {
         await setCached(
           { prompt, system: systemPrompt, model: modelTag },
           {
-            text: result.text,
+            text: finalText,
             provider: usedProvider,
             modelId: agent.model_id,
           }
@@ -110,7 +124,7 @@ export async function runAgent(opts: {
   });
 
   return {
-    text: result.text || "(no response)",
+    text: finalText || "(no response)",
     provider: usedProvider,
     agentName: agent.name,
   };
