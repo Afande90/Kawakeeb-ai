@@ -1,10 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { ADMIN_COOKIE, cookieIsValid } from "./lib/admin-auth";
 import { guestRegex, isDevelopmentEnvironment } from "./lib/constants";
 
-// Kawakeeb custom routes manage their own access (service-role, server-side)
-// and are intentionally NOT behind the template's chat auth.
-// TODO(before public deploy): add a password/middleware gate to /admin.
+// Kawakeeb custom routes bypass the TEMPLATE's chat auth, but the ones below
+// are gated by the admin password (see adminGated()). Webhooks/runners that are
+// called by external services use their own secrets, so they stay fully public.
 const KAWAKEEB_PUBLIC_PREFIXES = [
   "/admin",
   "/api/agents",
@@ -15,7 +16,36 @@ const KAWAKEEB_PUBLIC_PREFIXES = [
   "/api/usage",
   "/api/telegram",
   "/api/research",
+  "/api/admin-login",
 ];
+
+// Paths protected by the admin password. /admin/login is excluded so the user
+// can reach the login form. Telegram webhook + cron runner are excluded because
+// they authenticate with their own secrets.
+function adminGated(pathname: string): boolean {
+  if (pathname.startsWith("/admin/login")) {
+    return false;
+  }
+  if (pathname.startsWith("/api/telegram")) {
+    return false;
+  }
+  if (pathname.startsWith("/api/cron-jobs/run")) {
+    return false;
+  }
+  if (pathname.startsWith("/api/admin-login")) {
+    return false;
+  }
+  return (
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/api/agents") ||
+    pathname.startsWith("/api/tools") ||
+    pathname.startsWith("/api/skills") ||
+    pathname.startsWith("/api/agent-chat") ||
+    pathname.startsWith("/api/cron-jobs") ||
+    pathname.startsWith("/api/usage") ||
+    pathname.startsWith("/api/research")
+  );
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -28,8 +58,23 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Kawakeeb admin + agent APIs: allowed without the template guest auth.
+  // Kawakeeb admin + agent APIs: bypass the template guest auth, but enforce
+  // the admin password gate where applicable.
   if (KAWAKEEB_PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
+    if (adminGated(pathname)) {
+      const cookie = request.cookies.get(ADMIN_COOKIE)?.value;
+      const ok = await cookieIsValid(cookie);
+      if (!ok) {
+        // APIs get a 401; pages redirect to the login form.
+        if (pathname.startsWith("/api/")) {
+          return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+        const next = encodeURIComponent(pathname);
+        return NextResponse.redirect(
+          new URL(`/admin/login?next=${next}`, request.url)
+        );
+      }
+    }
     return NextResponse.next();
   }
 
