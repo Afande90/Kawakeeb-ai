@@ -14,6 +14,7 @@
 import "server-only";
 import { generateText } from "ai";
 import { getNextAvailableModel } from "./multi-providers";
+import { singleflight } from "./singleflight";
 
 const MIN_ROUNDS = 2;
 const MAX_ROUNDS = 8;
@@ -141,7 +142,10 @@ export async function deepResearch(
     progress(round, "Searching and reading");
     let roundFacts = "";
     for (const query of queries) {
-      const results = await braveSearch(query);
+      // Pattern 7: dedupe identical searches across rounds for 60s.
+      const results = await singleflight(`brave:${query}`, 60_000, () =>
+        braveSearch(query)
+      );
       for (const r of results.slice(0, PAGES_PER_ROUND)) {
         if (seenUrls.has(r.url)) {
           continue;
