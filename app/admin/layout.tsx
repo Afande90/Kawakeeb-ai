@@ -9,6 +9,7 @@ import type { ReactNode } from "react";
 const NAV_ITEMS = [
   { href: "/admin", label: "Overview", icon: "📊" },
   { href: "/admin/chat", label: "Chat", icon: "💬" },
+  { href: "/admin/research", label: "Research", icon: "🔬" },
   { href: "/admin/agents", label: "Agents", icon: "🤖" },
   { href: "/admin/skills", label: "Skills", icon: "🧠" },
   { href: "/admin/tools", label: "Tools", icon: "🔧" },

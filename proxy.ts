@@ -14,6 +14,7 @@ const KAWAKEEB_PUBLIC_PREFIXES = [
   "/api/cron-jobs",
   "/api/usage",
   "/api/telegram",
+  "/api/research",
 ];
 
 export async function proxy(request: NextRequest) {
