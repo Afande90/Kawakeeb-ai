@@ -208,7 +208,21 @@ VALUES
    'cli',
    NULL,
    'CLI',
-   '[{"name":"text","type":"string","required":true,"description":"Text to convert"},{"name":"voice","type":"string","required":false,"description":"Voice name"}]'::jsonb)
+   '[{"name":"text","type":"string","required":true,"description":"Text to convert"},{"name":"voice","type":"string","required":false,"description":"Voice name"}]'::jsonb),
+
+  ('web_search',
+   'Search the web and get top results (title, url, snippet). Use to find current information.',
+   'internal',
+   NULL,
+   'POST',
+   '[{"name":"query","type":"string","required":true,"description":"Search query"},{"name":"count","type":"integer","required":false,"description":"Number of results (max 10, default 5)"}]'::jsonb),
+
+  ('fetch_url',
+   'Fetch a web page and return its readable text content. Use to read an article or job posting.',
+   'internal',
+   NULL,
+   'POST',
+   '[{"name":"url","type":"string","required":true,"description":"The http(s) URL to fetch"}]'::jsonb)
 ON CONFLICT DO NOTHING;
 
 -- ═══ DONE ═══

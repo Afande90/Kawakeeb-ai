@@ -1,9 +1,20 @@
 # Kawakeeb AI — Backlog (deferred work, do not forget)
 
-## 🌐 Browser automation skills (DEFERRED — requested 2026-05)
+## ✅ Lightweight web access — DONE (2026-06)
 
-Two downloaded tools to integrate when we tackle web automation. Both do
-the same job (let an agent drive a real browser); pick ONE.
+Agents now have native web tools (no 400MB Playwright install):
+- `web_search` (Brave API) and `fetch_url` (read page text) — `lib/ai/web-tools.ts`
+- Registered as internal tools, attachable to any agent from /admin/tools
+- Attach both to **Job Hunter** + **Research** to let them search + read live pages
+
+This covers ~80% of the browser-automation need (find + read). The full
+clicking/form-filling path below (Webwright/Playwright) remains OPTIONAL —
+only needed for sites requiring login or interaction.
+
+## 🌐 Full browser automation (clicking/forms) — STILL OPTIONAL
+
+Two downloaded tools to integrate IF we ever need real interaction (login,
+multi-step forms). Both let an agent drive a real browser; pick ONE.
 
 ### Option A — Webwright (Microsoft) ⭐ recommended for us
 - Source: `C:\Users\Eng Ibrahim\Downloads\Webwright-main.zip`

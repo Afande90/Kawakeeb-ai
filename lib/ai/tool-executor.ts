@@ -132,11 +132,18 @@ async function callCli(
   return { stdout, stderr };
 }
 
-function callInternal(
+async function callInternal(
   t: Tool,
   args: Record<string, unknown>
 ): Promise<unknown> {
-  const handler = internalHandlers.get(t.name);
+  let handler = internalHandlers.get(t.name);
+  if (!handler) {
+    // Lazily register the built-in web tools (web_search, fetch_url) the
+    // first time one is invoked, avoiding a circular import at module load.
+    const { registerWebTools } = await import("./web-tools");
+    registerWebTools();
+    handler = internalHandlers.get(t.name);
+  }
   if (!handler) {
     throw new Error(`No internal handler registered for ${t.name}`);
   }
